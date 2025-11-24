@@ -160,6 +160,17 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
   dst=(unsigned char *)calloc(dest_x*dest_y*3,sizeof(unsigned char));   // Allocate and clear destination image
   if (!dst) return(NULL);					       // Unable to allocate image
 
+  // precompute row offsets to avoid multiplication in inner loop
+  int *row_offset = (int *)malloc(src_y * sizeof(int));
+  if (!row_offset) {
+      free(dst);
+      return(NULL);
+  }
+
+  for (int i = 0; i < src_y; i++) {
+      row_offset[i] = i * src_x * 3;
+  }
+
   step_x=(float)(src_x-1)/(float)(dest_x-1);
   step_y=(float)(src_y-1)/(float)(dest_y-1);
 
@@ -169,7 +180,13 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
     fy=y*step_y; 
     floor_fy = (int)(fy);
     ceil_fy = floor_fy + 1;
+    if (ceil_fy >= src_y) ceil_fy = src_y - 1; // boundary check
+
     dy=fy-floor_fy; 
+    less_sub_y = 1 - dy;
+
+    int src_row_f = row_offset[floor_fy];
+    int src_row_c = row_offset[ceil_fy];
 
     fx = 0.0;
 
@@ -178,36 +195,34 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
     
       floor_fx = (int)fx;
       ceil_fx = floor_fx + 1;
+      if (ceil_fx >= src_x) ceil_fx = src_x - 1; // boundary check
       dx=fx-floor_fx;
+      less_sub = 1 - dx;
 
       // unnecessary type casting, less multiplication
       fx += step_x;
-
-      // inline get pixel, only compute once per 'get', p1[0] etc better than src[computes]
-      src_row_f = floor_fy * src_x * 3;
-      src_row_c = ceil_fy * src_x * 3;
 
       p1 = src + src_row_f + floor_fx*3;
       p2 = p1 + 3;               // ceil_fx offset
       p3 = src + src_row_c + floor_fx*3;
       p4 = p3 + 3;
 
-      R1 = p1[0]; G1 = p1[1]; B1 = p1[2];
-      R2 = p2[0]; G2 = p2[1]; B2 = p2[2];
-      R3 = p3[0]; G3 = p3[1]; B3 = p3[2];
-      R4 = p4[0]; G4 = p4[1]; B4 = p4[2];
+      // R1 = p1[0]; G1 = p1[1]; B1 = p1[2];
+      // R2 = p2[0]; G2 = p2[1]; B2 = p2[2];
+      // R3 = p3[0]; G3 = p3[1]; B3 = p3[2];
+      // R4 = p4[0]; G4 = p4[1]; B4 = p4[2];
       // getPixel(src,ceil(fx),floor(fy),src_x,&R2,&G2,&B2);	// get N2 colours
       // getPixel(src,floor(fx),ceil(fy),src_x,&R3,&G3,&B3);	// get N3 colours
       // getPixel(src,ceil(fx),ceil(fy),src_x,&R4,&G4,&B4);	// get N4 colours
 
       // Interpolate to get T1 and T2 colours
       less_sub = 1 - dx;
-      RT1=(dx*R2)+(less_sub)*R1;
-      GT1=(dx*G2)+(less_sub)*G1;
-      BT1=(dx*B2)+(less_sub)*B1;
-      RT2=(dx*R4)+(less_sub)*R3;
-      GT2=(dx*G4)+(less_sub)*G3;
-      BT2=(dx*B4)+(less_sub)*B3;
+      RT1=(dx*p2[0])+(less_sub)*p1[0];
+      GT1=(dx*p2[1])+(less_sub)*p1[1];
+      BT1=(dx*p2[2])+(less_sub)*p1[2];
+      RT2=(dx*p4[0])+(less_sub)*p3[0];
+      GT2=(dx*p4[1])+(less_sub)*p3[1];
+      BT2=(dx*p4[2])+(less_sub)*p3[2];
 
       less_sub_y = 1 - dy;
       // Obtain final colour by interpolating between T1 and T2
@@ -226,7 +241,8 @@ unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int d
     }
   }
 
-    return(dst);
+  free(row_offset);
+  return(dst);
  // return(NULL);		// Comment out, and write your fast routine here!
 }
 
