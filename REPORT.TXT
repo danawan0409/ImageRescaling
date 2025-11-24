@@ -1,17 +1,17 @@
 CSC C85 - Code Optimization - 2021
 _______________________________________________________________________
 
-Team name:
+Team name: We Will Bot You
 
-Name 1 (last, first):
-Student number 1:
+Name 1 (last, first): Xu, Wengxin
+Student number 1: 1009447341
 
-Name 2 (last, first):
-Student number 2:
+Name 2 (last, first): Wan, Shuying
+Student number 2: 1008913400
 
 If applicable:
-Name 3 (last, first):
-Student number 3:
+Name 3 (last, first): Gong, Jieying
+Student number 3: 1009388066
 
 (Special: Lose marks for failing to complete the above)
 _______________________________________________________________________
@@ -21,22 +21,22 @@ Questions:
 0) On the same computer, and with no other applications open:
 
    - Run vanilla version, compiled as per the compile script (no compiler
-     optimization) and list: Vanilla (no compiler opt) FPS = 
+     optimization) and list: Vanilla (no compiler opt) FPS = 11.066667
      
    - Run your optimized code, compiled without compiler optimization
-     and list: Your Code (no compiler opt) FPS =
+     and list: Your Code (no compiler opt) FPS = 29.800000
 
    - Run vanilla code compiled with flag -O3 for compiler optimization
-     and list: Vanilla (compiler optimized) FPS =
+     and list: Vanilla (compiler optimized) FPS = 33.866667
      
    - Run your optimized code, compiled with flag -O3
-     and list: Your Code (compiler optimized) FPS =
+     and list: Your Code (compiler optimized) FPS = 64.533333
      
      What is the ratio of your code (compiler optimized) to vanilla
      with no compiler optimization?
      
      Ratio = Vanilla(no compiler opt) FPS / Your code(compiler optimized) FPS
-           =
+           = 5.8313251
      
 a) Look at the profiler output for vanilla_imageRescale(). Identify the
    lines that you think are un-necessary bottlenecks (i.e. lines whose
@@ -47,6 +47,32 @@ a) Look at the profiler output for vanilla_imageRescale(). Identify the
 	- The actual line of code
 	- The amount of time taken
 	(you can copy/paste from the profiler output)
+
+   1. getPixel(src,floor(fx),floor(fy),src_x,&R1,&G1,&B1);        // get N1 colours
+   - line 410
+   - 6.28% CPU time, 4 calls per pixel so ~25% of total time here (line 410-413)
+
+   2. final interpolation:
+      *(R)=*(image+((x+(y*sx))*3)+0);
+   - line 435
+   - 5.49% CPU time
+   - R, G, B final assignment lines (435-437) each take ~5.49% CPU time, total ~16.47% CPU time
+
+   3. bilinear interpolation calculations:
+      RT1=(dx*R2)+(1-dx)*R1;
+      GT1=(dx*G2)+(1-dx)*G1;
+      RT2=(dx*R4)+(1-dx)*R3;
+      GT2=(dx*G4)+(1-dx)*G3;
+      BT2=(dx*B4)+(1-dx)*B3;
+   - lines 415-420
+   - 3.53% CPU time each line, total ~17.65% CPU time
+
+   4. setPixel(dst,x,y,dest_x,R,G,B);
+   - line 426
+   - It's weird that I see setPixel() doesn't have any time in the profiler output,
+     but I believe it takes a significant amount of time since it's called once per pixel
+     to store the final pixel value. It's similar to getPixel() so it should take a similar
+     amount of time.
 
    For each line, explain why the line creates a bottleneck (in terms
    of what you know about CPU architecture). I want specific reasons
@@ -60,11 +86,75 @@ b) For each of the lines in a)
    Explain why your improvement should work (again, based on what you
    know about CPU architecture).
 
+   1. I remove all getPixel() calls and replace them with direct memory access to
+      read pixel values from the source image using pointers. This eliminates the overhead 
+      of function calls. It improves cache locality since we access memory in a linear fashion, 
+      and pipeline behavior.
+
+      I also precompute row offsets to avoid redundant calculations inside the loop:
+
+      row_offset[i] = i * src_x * 3;
+   
+   2. These lines compute x+(y*sx) 3 times, which is very redundant.
+      I precompute the row offset for each y value outside the inner loop:
+
+      int src_row_f = row_offset[floor_fy];
+      p1 = src + src_row_f + floor_fx*3;
+
+      Thus the CPU executes fewer integer multiplications and additions, which are more costly
+      than simple memory accesses.
+
+   3. I optimized these calculations by:
+      - precomputing (1-dx) and (1-dy)
+      - use float instead of double
+      - restructuring the interpolatioin calculations to minimize the number of multiplications 
+        and additions:
+
+      less_sub = 1 - dx;
+      RT1 = dx * p2[0] + less_sub * p1[0];
+      RT2 = dx * p4[0] + less_sub * p3[0];
+      ...
+      less_sub_y = 1 - dy;
+      R = (unsigned char)(dy * RT2 + less_sub_y * RT1);
+
+      This reduces arithmetic cost and keep more values in registers, improving speed.
+
+   4. I removed the setPixel() function call and wrote the result directly into the destination
+      image:
+
+      dst[set+0]=R;
+      dst[set+1]=G;
+      dst[set+2]=B;
+
+      This again removes function call overhead and improves cache locality and pipeline behavior.
+
 c) List any other optimizations you performed in your code and why they
    help increase speed
 
+   - use float instead of double for all calculations: float operations are generally faster
+     than double operations on most architectures, leading to improved performance.
+
+   - cached (1-dx) and (1-dy) values to avoid redundant calculations: this reduces the number of
+     arithmetic operations, which can be costly in terms of CPU cycles.
+
+   - reduced temporary variables: by minimizing the number of temporary variables, we reduce memory usage
+     and improve cache performance.
+
+   - simplified calculations where possible: this reduces the computational load on the CPU.
+
+   - eliminate unnecessary casts: this reduces overhead and speeds up execution.
+
+   - produce more predictable memory access patterns: this improves cache performance by ensuring
+     that data is accessed in a linear fashion.
+
 d) Is there any part of the vanilla code that could not be optimized
    at all? if so, which?
+
+   Yes. The core bilinear interpolation algorithm itself could not be optimized further without changing the
+   algorithm. The algorithm mathematically requires computing four pixel values and performing weighted averages on them.
+
+   Moreover, reading the input image and writing to the output image are necessary operations that cannot be eliminated 
+   or significantly optimized.
    
 e) Now run your code with cache sim on. Identify the lines that you see
    causing cache misses, and for each of these please list:
@@ -76,11 +166,36 @@ e) Now run your code with cache sim on. Identify the lines that you see
    Describe any strategy you can come up with that may help reduce these
    cache misses.
 
+   I use the metric "L1 Miss Sum" and the lines with highest L1 misses were:
+
+   1. *(image+((x+(y*sx))*3)+1)=G;
+   - line 445
+   - L1 Miss Sum: 70.26
+   - Strategy: remove getPixel() from the ineer loop and replace it with direct
+               memory access using pointers. (Same as question b-1)
+
+   2. GT2=(dx*G4)+(1-dx)*G3;
+   - line 419
+   - L1 Miss Sum: 14.84
+   - Strategy: I reuse the same pointers p1-p4 for all three color channels and
+               compute the interpolation using those cached values. This reduces
+               the number of memory loads that can cause cache misses on this line.
+
+   Other lines had significantly lower L1 misses, such as 2.48 and below.
+
+   It turns out that the total L1 cache misses for fast_imageRescale() is only 9.70
+   compared to vanilla_imageRescale()'s 90.28.
+
 f) Do you think you have achieved close to optimal performance on this
    code? (yes/no)
 
+   No. There is still room for improvement. We were busy on RoboSoccer project
+   and didn't have enough time to further optimize this code.
+
 g) If your answer to d) is no, what could you do to further increase
    performance?
+
+   My answer to d) is yes.
 
 ______________________________________________________________________
 
