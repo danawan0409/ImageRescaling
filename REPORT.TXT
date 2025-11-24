@@ -6,7 +6,7 @@ Team name: We Will Bot You
 Name 1 (last, first): Xu, Wengxin
 Student number 1: 1009447341
 
-Name 2 (last, first): Wan, Shuying
+Name 2 (last, first): Wan, Shu Ying
 Student number 2: 1008913400
 
 If applicable:
@@ -137,15 +137,25 @@ c) List any other optimizations you performed in your code and why they
    - cached (1-dx) and (1-dy) values to avoid redundant calculations: this reduces the number of
      arithmetic operations, which can be costly in terms of CPU cycles.
 
-   - reduced temporary variables: by minimizing the number of temporary variables, we reduce memory usage
-     and improve cache performance.
+   - reduced temporary variables: by minimizing the number of temporary  (e.g. by removing R1, G1, B1 and the likes),
+      we reduce memory usage and improve cache performance.
 
    - simplified calculations where possible: this reduces the computational load on the CPU.
 
-   - eliminate unnecessary casts: this reduces overhead and speeds up execution.
+   - eliminate unnecessary casts: reduced it by only typecasting once if its needed
 
-   - produce more predictable memory access patterns: this improves cache performance by ensuring
-     that data is accessed in a linear fashion.
+   - Avoided using unnecessary functions like floor() and ceil() - did floor_fy = (int)(fy);
+      ceil_fy = floor_fy + 1; instead
+
+   - extracted certain computations outside the loop when possible (i.e.
+      fy=y*step_y; 
+      floor_fy = (int)(fy);
+      ceil_fy = floor_fy + 1;
+      this doesn't depend on x, so we can extract from inner loop) 
+
+   - produce more predictable memory access patterns: since images are stored in a way where 
+   img[0][0] is followed by img[0][1] instead of img[1][0], we moved x from being the outer
+   loop variable to the inner loop variable so that memory access would be more predictable. 
 
 d) Is there any part of the vanilla code that could not be optimized
    at all? if so, which?

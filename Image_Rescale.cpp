@@ -143,9 +143,9 @@ void imageOutput(unsigned char *im, int sx, int sy, const char *name);
 unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int dest_x, int dest_y)
 {
   float step_x,step_y;			// Step increase as per instructions above
-  unsigned char R1,R2,R3,R4;		// Colours at the four neighbours
-  unsigned char G1,G2,G3,G4;
-  unsigned char B1,B2,B3,B4;
+  // unsigned char R1,R2,R3,R4;		// Colours at the four neighbours
+  // unsigned char G1,G2,G3,G4;
+  // unsigned char B1,B2,B3,B4;
   float RT1, GT1, BT1;			// Interpolated colours at T1 and T2
   float RT2, GT2, BT2;
   unsigned char R,G,B;			// Final colour at a destination pixel
