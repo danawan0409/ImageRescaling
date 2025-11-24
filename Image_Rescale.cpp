@@ -142,7 +142,97 @@ void imageOutput(unsigned char *im, int sx, int sy, const char *name);
 
 unsigned char *fast_rescaleImage(unsigned char *src, int src_x, int src_y, int dest_x, int dest_y)
 {
- return(NULL);		// Comment out, and write your fast routine here!
+  double step_x,step_y;			// Step increase as per instructions above
+  unsigned char R1,R2,R3,R4;		// Colours at the four neighbours
+  unsigned char G1,G2,G3,G4;
+  unsigned char B1,B2,B3,B4;
+  double RT1, GT1, BT1;			// Interpolated colours at T1 and T2
+  double RT2, GT2, BT2;
+  unsigned char R,G,B;			// Final colour at a destination pixel
+  unsigned char *dst;			// Destination image - must be allocated here! 
+  int x,y;				// Coordinates on destination image
+  double fx,fy;				// Corresponding coordinates on source image
+  double dx,dy;				// Fractional component of source image coordinates
+  int ceil_fx, floor_fx, ceil_fy, floor_fy;
+  int get1, get2, get3, get4, set;
+  double less_sub, less_sub_y;
+
+
+  dst=(unsigned char *)calloc(dest_x*dest_y*3,sizeof(unsigned char));   // Allocate and clear destination image
+  if (!dst) return(NULL);					       // Unable to allocate image
+
+  step_x=(double)(src_x-1)/(double)(dest_x-1);
+  step_y=(double)(src_y-1)/(double)(dest_y-1);
+
+  // switch x and y cuz locality 
+  for (y=0;y<dest_y;y++){			// Loop over destination image
+    // take out of inner loop - doesn't depend on x
+    fy=y*step_y; 
+    floor_fy = (int)(fy);
+    ceil_fy = floor_fy + 1;
+    dy=fy-floor_fy; 
+
+    fx = 0.0;
+
+    for (x=0;x<dest_x;x++){
+      // unnecessary type casting, don't call floor function too much or type recast, get rid of floor() and ceil()
+    
+      floor_fx = (int)fx;
+      ceil_fx = floor_fx + 1;
+      dx=fx-floor_fx;
+
+      // unnecessary type casting, less multiplication
+      fx += step_x;
+
+      // inline get pixel, only compute once per 'get'
+      get1 = (floor_fx+(floor_fy*src_x))*3;
+      R1=src[get1+0];
+      G1=src[get1+1];
+      B1=src[get1+2];
+      get2 = (ceil_fx+(floor_fy*src_x))*3;
+      R2=src[get2+0];
+      G2=src[get2+1];
+      B2=src[get2+2];
+      get3 = (floor_fx+(ceil_fy*src_x))*3;
+      R3=src[get3+0];
+      G3=src[get3+1];
+      B3=src[get3+2];
+      get4 = (ceil_fx+(ceil_fy*src_x))*3;
+      R4=src[get4+0];
+      G4=src[get4+1];
+      B4=src[get4+2];
+      // getPixel(src,ceil(fx),floor(fy),src_x,&R2,&G2,&B2);	// get N2 colours
+      // getPixel(src,floor(fx),ceil(fy),src_x,&R3,&G3,&B3);	// get N3 colours
+      // getPixel(src,ceil(fx),ceil(fy),src_x,&R4,&G4,&B4);	// get N4 colours
+
+      // Interpolate to get T1 and T2 colours
+      less_sub = 1 - dx;
+      RT1=(dx*R2)+(less_sub)*R1;
+      GT1=(dx*G2)+(less_sub)*G1;
+      BT1=(dx*B2)+(less_sub)*B1;
+      RT2=(dx*R4)+(less_sub)*R3;
+      GT2=(dx*G4)+(less_sub)*G3;
+      BT2=(dx*B4)+(less_sub)*B3;
+
+      less_sub_y = 1 - dy;
+      // Obtain final colour by interpolating between T1 and T2
+      R=(unsigned char)((dy*RT2)+(less_sub_y*RT1));
+      G=(unsigned char)((dy*GT2)+(less_sub_y*GT1));
+      B=(unsigned char)((dy*BT2)+(less_sub_y*BT1));
+
+      // Store the final colour
+      // unsigned char *image, int x, int y, int sx, unsigned char R, unsigned char G, unsigned char B)
+      // setPixel(dst,x,y,dest_x,R,G,B);
+      // inline function
+      set = (x+(y*dest_x))*3;
+      dst[set+0]=R;
+      dst[set+1]=G;
+      dst[set+2]=B;
+    }
+  }
+
+    return(dst);
+ // return(NULL);		// Comment out, and write your fast routine here!
 }
 
 /*****************************************************
