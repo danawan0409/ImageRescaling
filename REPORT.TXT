@@ -50,13 +50,13 @@ a) Look at the profiler output for vanilla_imageRescale(). Identify the
 
    1. getPixel(src,floor(fx),floor(fy),src_x,&R1,&G1,&B1);        // get N1 colours
    - line 410
-   - 6.28% CPU time, 4 calls per pixel so ~25% of total time here (line 410-413)
+   - 5.92% CPU time, 4 calls per pixel so ~23.68% of total time here (line 410-413)
 
    2. final interpolation:
       *(R)=*(image+((x+(y*sx))*3)+0);
    - line 435
-   - 5.49% CPU time
-   - R, G, B final assignment lines (435-437) each take ~5.49% CPU time, total ~16.47% CPU time
+   - 4.35% CPU time
+   - R, G, B final assignment lines (435-437) each take ~4.35% CPU time, total ~13.05% CPU time
 
    3. bilinear interpolation calculations:
       RT1=(dx*R2)+(1-dx)*R1;
@@ -65,7 +65,7 @@ a) Look at the profiler output for vanilla_imageRescale(). Identify the
       GT2=(dx*G4)+(1-dx)*G3;
       BT2=(dx*B4)+(1-dx)*B3;
    - lines 415-420
-   - 3.53% CPU time each line, total ~17.65% CPU time
+   - 3.33%-4.13% CPU time each line, total ~17% CPU time
 
    4. setPixel(dst,x,y,dest_x,R,G,B);
    - line 426
